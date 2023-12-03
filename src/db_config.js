@@ -5,7 +5,7 @@ const db_config = {
   host: "localhost",
   port: 3306,
   user: "root",
-  database: "products",
+  database: "hardtech",
   password: process.env.DB_PASS,
 };
 
