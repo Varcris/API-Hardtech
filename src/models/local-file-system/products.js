@@ -1,11 +1,18 @@
-import { readJSON } from "../../utils.js";
+import { write } from "node:fs";
+import { readJSON, writeJSON } from "../../utils.js";
 import { randomUUID } from "node:crypto";
 
-const products = readJSON("../data/products.json");
+const pathProducts = "../data/products.json";
+
+let products = readJSON(pathProducts);
 
 export class ProductModel {
   static async getAll(args) {
-    return products;
+    const data = {
+      products,
+      total: products.length,
+    };
+    return data;
   }
 
   static async getById(id) {
@@ -29,7 +36,24 @@ export class ProductModel {
     const index = products.findIndex((product) => product.id === id);
     if (index === -1) return false;
     products.splice(index, 1);
-    return products;
+    const data = {
+      products: products,
+      total: products.length,
+    };
+
+    return data;
+  }
+
+  // borrar todos los productos de una categoria
+  static async deleteByCategory({ category }) {
+    let index = products.findIndex((product) => product.category === category);
+    if (index === -1) return false; // No hay productos con esa categoria
+    while (index !== -1) {
+      products.splice(index, 1);
+      index = products.findIndex((product) => product.category === category);
+    }
+    await writeJSON("data/products.json", products);
+    return true;
   }
 
   static async update({ id, kwargs }) {
@@ -42,4 +66,6 @@ export class ProductModel {
     products[index] = updatedProduct;
     return products[index];
   }
+
+  static async;
 }
