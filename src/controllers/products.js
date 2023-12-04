@@ -27,6 +27,13 @@ export class ProductController {
   }
 
   static async getByCategory(req, res) {
+    const { categoryId } = req.params;
+    const category = await productMd.getCategoryByID(categoryId);
+
+    const product = await productMd.getByCategory(category);
+    if (!product.length)
+      return res.status(404).json({ message: "Product Not Found" });
+    res.status(200).json(movie);
   }
   // obtenemos todos los productos
   static async getAllProducts(req, res) {
