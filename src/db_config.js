@@ -11,3 +11,4 @@ const db_config = {
 
 // export const connection = mysql.createConnection(db_config);
 export const connection = mysql.createPool(db_config);
+console.log("MySQL Connected");

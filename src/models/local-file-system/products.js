@@ -7,10 +7,14 @@ const pathProducts = "../data/products.json";
 let products = readJSON(pathProducts);
 
 export class ProductModel {
-  static async getAll(args) {
+  static async getAll(category) {
+    let allProducts = products;
+    if (category) {
+      allProducts = await this.getByCategory(category);
+    }
     const data = {
-      products,
-      total: products.length,
+      products: allProducts,
+      total: allProducts.length,
     };
     return data;
   }

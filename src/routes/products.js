@@ -3,4 +3,5 @@ import { ProductController } from "../controllers/products.js";
 export const productsRoute = Router();
 
 productsRoute.get("/", ProductController.getAll);
-productsRoute.post("/delete/:category", ProductController.deleteByCategory);
+productsRoute.get("/:id", ProductController.getById);
+productsRoute.delete("/:category", ProductController.deleteByCategory);

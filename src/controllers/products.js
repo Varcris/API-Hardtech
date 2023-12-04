@@ -1,7 +1,7 @@
 //! Falta crear el Modelo de Productos para MySQL
-// import { ProductModel } from "../models/mysql/products.js";
+import { ProductModel } from "../models/mysql/products.js";
 //? Por ahora usaremos el modelo de local-file-system
-import { ProductModel } from "../models/local-file-system/products.js";
+// import { ProductModel } from "../models/local-file-system/products.js";
 import {
   validateProduct,
   validatePartialProduct,
@@ -9,8 +9,16 @@ import {
 } from "../schemas/products.js";
 export class ProductController {
   static async getAll(req, res) {
-    const products = await ProductModel.getAll();
-    products
+    const { category } = req.query;
+    console.log("Categoria: " + category);
+    const categoryValidate = validatePartialProduct({ category });
+    console.log("Categoria: " + categoryValidate.success);
+    if (!categoryValidate.success) {
+      return res.status(400).json({ message: categoryValidate.error });
+    }
+
+    const products = await ProductModel.getAll(category);
+    products.length
       ? res.status(200).json(products)
       : res.status(404).json({ message: "No products found" });
   }
