@@ -23,6 +23,10 @@ export class ProductModel {
     return products.find((product) => product.id === id);
   }
 
+  static async getCategoryByID(id) {
+    return category.find((category) => category.id === id);
+  }
+
   static async getByCategory(category) {
     return products.filter((product) => product.category === category);
   }
