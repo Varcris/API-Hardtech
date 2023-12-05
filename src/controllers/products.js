@@ -1,7 +1,7 @@
-//! Falta crear el Modelo de Productos para MySQL
-import { ProductModel } from "../models/mysql/products.js";
-//? Por ahora usaremos el modelo de local-file-system
-// import { ProductModel } from "../models/local-file-system/products.js";
+import { deleteImage } from "../utils/cloudinary.js";
+import { ProductModel } from "../models/mysql/products.js"; // mysql
+
+// import { ProductModel } from "../models/local-file-system/products.js"; // local file system
 import {
   validateProduct,
   validatePartialProduct,
@@ -51,7 +51,48 @@ export class ProductController {
     }
   }
 
-  static async delete(req, res) {}
+  static async delete(req, res) {
+    console.log("Controller delete");
+    const { id } = req.params;
+    const validationId = validateId({ id });
+    if (!validationId.success) return res.status(400).json(validationId.error);
+    console.log("Validation passed");
+    try {
+      console.log("Checking if product exists");
+
+      const isExistId = await ProductModel.existId(id);
+      console.log("isExistId: ", isExistId);
+      if (!isExistId)
+        return res.status(400).json({ message: "Product Not Found" });
+      console.log("Getting images from product");
+      let imagesPublic_id = await ProductModel.getPublicIdImagesByProductId(id);
+      imagesPublic_id = imagesPublic_id.map((image) => image.public_id);
+
+      console.log("public_id array: ", imagesPublic_id);
+      console.log("Deleting product from database");
+
+      const result = await ProductModel.delete(id);
+
+      console.log("result: ", result);
+      if (!result.success) {
+        res.status(500).json({ status: "500", message: result.message });
+      }
+      // delete images from cloudinary
+      console.log("Deleting images from cloudinary");
+      let deleteLogs = [];
+      for (const public_id of imagesPublic_id) {
+        const log = await deleteImage(public_id);
+        deleteLogs.push(log);
+      }
+      console.log("deleteLogs: ");
+      console.log(deleteLogs);
+      res.status(200).json({ message: "Product deleted", info: result.data });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ message: "Internal Server Error", error: error.message });
+    }
+  }
 
   static async create(req, res) {
     console.log("Controller create");
@@ -81,19 +122,15 @@ export class ProductController {
       console.log(validationResult.error);
       return res.status(422).json(validationResult.error);
     }
-    console.log("Product is valid");
-    console.log(validationResult.data);
+    console.log("Validation passed");
+
     try {
+      console.log("Creating product");
       const result = await ProductModel.create({ ...validationResult.data });
       console.log("result: ", result);
-      if (result.success) {
-        const query = await ProductModel.getById(result.data.id);
-        query.success
-          ? res
-              .status(201)
-              .json({ product: query.data, message: "Product created" })
-          : res.status(500).json({ message: result.message });
-      }
+      result.success
+        ? res.status(201).json({ id: result.data, message: "Product created" })
+        : res.status(500).json({ message: result.message, status: "500" });
     } catch (error) {
       error.message.startsWith("Incorrect")
         ? res.status(400).json({ message: error.message })

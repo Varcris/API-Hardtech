@@ -1,4 +1,4 @@
-import { uploadImage } from "../utils/cloudinary.js";
+import { uploadImage, deleteImage } from "../utils/cloudinary.js";
 import fse from "fs-extra";
 
 /*
