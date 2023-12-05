@@ -18,7 +18,7 @@ const productSchema = z.object({
         message: "El precio solo puede tener dos decimales",
       }
     ),
-  discountPercentage: z.number().min(0).max(100),
+  discount_percentage: z.number().min(0).max(100),
   rating: z.number().min(0).max(5),
   stock: z.number().min(0),
   brand: z.string().max(255),
@@ -28,10 +28,12 @@ const productSchema = z.object({
     .refine((value) => ["smartphones", "laptops"].includes(value), {
       message: "La categoría debe ser 'smartphones' o 'laptops'",
     }),
-  thumbnail: z.string().url({
-    message: "La miniatura debe ser una URL válida",
-  }),
-  images: z.array(z.string().url()),
+  images: z
+    .array(
+      z.object({ public_id: z.string().max(255), image_url: z.string().url() })
+    )
+    .min(1)
+    .max(10),
 });
 
 export function validateProduct(object) {
