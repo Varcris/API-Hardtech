@@ -22,9 +22,12 @@ const productSchema = z.object({
   rating: z.number().min(0).max(5),
   stock: z.number().min(0),
   brand: z.string().max(255),
-  category: z.string(z.enum(["smartphones", "laptops"]), {
-    required_error: "La categoría del producto es requerida",
-  }),
+  category: z
+    .string()
+    .max(255)
+    .refine((value) => ["smartphones", "laptops"].includes(value), {
+      message: "La categoría debe ser 'smartphones' o 'laptops'",
+    }),
   thumbnail: z.string().url({
     message: "La miniatura debe ser una URL válida",
   }),
