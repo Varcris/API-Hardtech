@@ -1,5 +1,5 @@
-import { json } from "express";
 import { connection } from "../../db_config.js";
+
 export class ProductModel {
   static async getAll(category) {
     if (category) return await this.getByCategory(category);
@@ -9,12 +9,11 @@ export class ProductModel {
       JOIN categories c ON(p.id_category = c.id);`
     );
     if (!products.length) return [];
-
     const allInfo = await Promise.all(
       products.map(async (product) => {
         let images = await this.getImagesByProductId(product.id);
         images = images.map((image) => image.image_url);
-        return { ...product, images: images.length ? images : [] };
+        return { ...product, images };
       })
     );
 
@@ -46,7 +45,7 @@ export class ProductModel {
     if (!products.length) return [];
     let images = await this.getImagesByProductId(id);
     images = images.map((image) => image.image_url);
-    return { ...products[0], images: images.length ? images : [] };
+    return { ...products[0], images };
   }
 
   static async getByCategory(category) {
@@ -62,15 +61,93 @@ export class ProductModel {
       products.map(async (product) => {
         let images = await this.getImagesByProductId(product.id);
         images = images.map((image) => image.image_url);
-        return { ...product, images: images.length ? images : [] };
+        return { ...product, images };
       })
     );
     return allInfo;
   }
 
-  static async create({ kwargs }) {}
+  static async create({ input }) {
+    const {
+      title,
+      description,
+      price,
+      discount_percentage,
+      rating,
+      stock,
+      brand,
+      thumbnail,
+      category,
+      images,
+    } = input;
 
-  static async deleteById({ id }) {}
+    if (!images.length) return false;
 
-  static async update({ id, kwargs }) {}
+    const [uuidResult] = await connection.query("SELECT UUID() uuid;");
+    const [{ uuid }] = uuidResult;
+    const [categoryResult] = await connection.query(
+      `SELECT id FROM categories WHERE name = ?;`,
+      [category]
+    );
+    const [{ id_category }] = categoryResult;
+
+    const [resultProduct] = await connection.query(
+      `
+      INSERT INTO products (id, title, description, price, discount_percentage, rating, stock, brand, thumbnail, id_category)
+      VALUES (UUID_TO_BIN("${uuid}"),?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      [
+        title,
+        description,
+        price,
+        discount_percentage,
+        rating,
+        stock,
+        brand,
+        thumbnail,
+        id_category,
+      ]
+    );
+    if (!resultProduct) return false;
+
+    try {
+      for (const { id, image_url } of images) {
+        await connection.query(
+          `	
+          INSERT INTO images (id, image_url)
+          VALUES (?, ?);`,
+          [id, image_url]
+        );
+        await connection.query(
+          `	INSERT INTO products_images (id_product, id_image)
+          VALUES (UUID_TO_BIN("${uuid}"), ?);`,
+          [id]
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
+    return resultProduct;
+  }
+
+  static async deleteById({ id }) {
+    const [info] = await connection.query(
+      `DELETE FROM products WHERE id = UUID_TO_BIN(?);`,
+      [id]
+    );
+    return info.affectedRows;
+  }
+
+  static async update({ id, input }) {
+    let queryString = "";
+    for (const key in input) {
+      queryString += `${key} = '${input[key]}', `;
+    }
+    queryString = queryString.slice(0, -2);
+    const [result, _info] = await connection.query(
+      `UPDATE products SET ${queryString} WHERE id = UUID_TO_BIN(?)`,
+      [id]
+    );
+    return result.affectedRows;
+  }
 }
