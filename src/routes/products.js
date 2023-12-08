@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { ProductController } from "../controllers/products.js";
 import fileUpload from "express-fileupload";
-import { uploadCloudinary } from "../middleware/cloudinary.js";
 export const productsRoute = Router();
 
 productsRoute.get("/", ProductController.getAll);
@@ -12,9 +11,17 @@ productsRoute.post(
     useTempFiles: true,
     tempFileDir: "./uploads",
   }),
-  uploadCloudinary,
   ProductController.create
 );
 productsRoute.put("/:id", ProductController.update);
 productsRoute.patch("/:id", ProductController.update);
+productsRoute.post(
+  "/:id/images",
+  fileUpload({
+    useTempFiles: true,
+    tempFileDir: "./uploads",
+  }),
+  ProductController.addImages
+);
+productsRoute.delete("/:id/images", ProductController.deleteImages);
 productsRoute.delete("/:id", ProductController.delete);

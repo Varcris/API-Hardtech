@@ -1,30 +1,39 @@
 import { connection } from "../../db_config.js";
 
+import { CategoryModel } from "./categories.js";
+
 export class ProductModel {
   /**
    * @param {String} category
    * @returns  {Promise<Array>} Array of products or null
    */
   static async getAll(category) {
+    console.log("category: ", category);
     if (category) return await this.getByCategory(category);
+
     try {
+      console.log("Searching all products");
       const [products, _info] = await connection.query(
         `SELECT BIN_TO_UUID(p.id) id, p.title, p.description, p.price, p.discount_percentage, p.rating, p.stock, p.brand, c.name category
-      FROM products p 
-      JOIN categories c ON(p.id_category = c.id);`
+        FROM products p 
+        JOIN categories c ON(p.id_category = c.id);`
       );
+
       if (!products.length)
         return { success: false, message: "No products found" };
 
       const allInfo = await Promise.all(
         products.map(async (product) => {
           let images = await this.getImagesByProductId(product.id);
-          images = images.map((image) => image.image_url);
-          return { success: true, data: { ...product, images } };
+          return { ...product, images };
         })
       );
+      const jsonProducts = {
+        products: allInfo,
+        total: allInfo.length,
+      };
 
-      return { success: true, data: allInfo };
+      return { success: true, data: jsonProducts };
     } catch (error) {
       return { success: false, message: error.message };
     }
@@ -42,7 +51,6 @@ export class ProductModel {
       if (!product) return { success: false, message: "Product Not Found" };
 
       let images = await this.getImagesByProductId(id);
-      images = images.map((image) => image.image_url);
       const allInfo = {
         ...product,
         images,
@@ -62,6 +70,7 @@ export class ProductModel {
   }
 
   static async create(input) {
+    console.log("Creating product in Model");
     const {
       title,
       description,
@@ -73,8 +82,6 @@ export class ProductModel {
       category,
       images,
     } = input;
-    if (!images.length) return { success: false, message: "No images found" };
-
     const [uuidResult] = await connection.query("SELECT UUID() uuid;");
     const [{ uuid }] = uuidResult;
     console.log("UUID: ", uuid);
@@ -111,7 +118,7 @@ export class ProductModel {
       );
     } catch (error) {
       console.error(error);
-      return { success: false, message: "Product not created" };
+      return { success: false, message: error.message };
     }
 
     try {
@@ -139,39 +146,49 @@ export class ProductModel {
       return { success: true, data: uuid };
     } catch (error) {
       console.error(error);
-      return { success: false, message: "Product not created" };
+      return { success: false, message: "Product not created hola" };
     }
   }
 
   static async delete(id) {
+    console.log("Deleting product in Model");
     try {
       const [id_images, _info] = await connection.query(
         `SELECT id_image FROM products_images WHERE id_product = UUID_TO_BIN(?);`,
         [id]
       );
+      if (!id_images.length)
+        return { success: false, message: "No images found" };
+      console.log("Getting images ids");
       const result_products_images = await connection.query(
         `
         DELETE FROM products_images p_i WHERE p_i.id_product = UUID_TO_BIN(?);`,
         [id]
       );
+      if (!result_products_images[0].affectedRows)
+        return { success: false, message: "Products_images error" };
+      console.log("Products_images deleted");
 
-      let array_id_images = [];
-      array_id_images = id_images.map((elem) => elem.id_image);
-
-      for (const { id_image } of array_id_images) {
-        await connection.query(`DELETE FROM images WHERE id = ?;`, [id_image]);
+      const list_id = id_images.map((elem) => elem.id_image);
+      console.log("list_id: ", list_id);
+      let isDeletedImages = true;
+      for (const id_image of list_id) {
+        console.log("id_image: ", id_image);
+        const log = await connection.query(`DELETE FROM images WHERE id = ?;`, [
+          id_image,
+        ]);
+        if (!log[0].affectedRows) isDeletedImages = false;
       }
-
+      if (!isDeletedImages) return { success: false, message: "Images error" };
+      console.log("Images deleted");
       const infoProducts = await connection.query(
         `DELETE FROM products WHERE id = UUID_TO_BIN(?);`,
         [id]
       );
 
-      console.log("result_products_images: ");
-      console.log(result_products_images);
-      console.log("infoProducts: ");
-      console.log(infoProducts);
-      console.log("Products deleted successfully");
+      if (!infoProducts[0].affectedRows)
+        return { success: false, message: "Products error" };
+
       return { success: true, data: infoProducts.affectedRows };
     } catch (error) {
       return { success: false, message: error.message };
@@ -179,36 +196,45 @@ export class ProductModel {
   }
 
   static async update(id, input) {
+    console.log("Updating product in Model");
     let queryString = "";
+    console.log("adding values to query string");
     for (const key in input) {
-      if (key === "images") continue;
       if (key === "category") {
-        const [categoryResult] = await connection.query(
-          `SELECT id FROM categories WHERE name = ?;`,
-          [input[key]]
-        );
-        const [{ id_category }] = categoryResult;
-        queryString += `id_category = '${id_category}', `;
+        const result = await CategoryModel.getIdByName(input[key]);
+        if (!result.success) return { success: false, message: result.message };
+        console.log("id_category: ", result.data.id);
+        queryString += `id_category = '${result.data.id}', `;
         continue;
       }
       queryString += `${key} = '${input[key]}', `;
     }
+    console.log("query string: ", queryString);
     queryString = queryString.slice(0, -2);
-    const [result, _info] = await connection.query(
-      `UPDATE products SET ${queryString} WHERE id = UUID_TO_BIN(?)`,
-      [id]
-    );
-    return result.affectedRows;
+    try {
+      console.log("Updating product in database");
+      const [result] = await connection.query(
+        `UPDATE products SET ${queryString} WHERE id = UUID_TO_BIN(?)`,
+        [id]
+      );
+      const message = result.affectedRows
+        ? result.changedRows
+          ? "Product updated"
+          : "Product not updated because is the same data"
+        : "Product not updated because not found";
+
+      return { success: true, message };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
   }
 
   static async getImagesByProductId(id) {
     const [images, _info] = await connection.query(
-      `SELECT i.image_url FROM images i
+      `SELECT i.public_id, i.image_url FROM images i
       JOIN products_images p_i
       ON(i.id = p_i.id_image)
-      JOIN products p
-      ON(p_i.id_product = p.id)
-      WHERE BIN_TO_UUID(p.id) = ?
+      WHERE BIN_TO_UUID(p_i.id_product) = ?
       ;`,
       [id]
     );
@@ -228,5 +254,109 @@ export class ProductModel {
     console.log(images);
 
     return images.length ? images : [];
+  }
+
+  static async getByCategory(category) {
+    console.log("Searching products by category");
+    const [filteredProducts, _info] = await connection.query(
+      `SELECT BIN_TO_UUID(p.id) id, p.title, p.description, p.price, p.discount_percentage, p.rating, p.stock, p.brand, c.name category
+      FROM products p 
+      JOIN categories c ON(p.id_category = c.id)
+      WHERE c.name LIKE '%' ? '%';`,
+      [category]
+    );
+
+    if (!filteredProducts.length)
+      return { success: false, message: "No products found" };
+
+    const allInfo = await Promise.all(
+      filteredProducts.map(async (product) => {
+        console.log("product: ", product.id);
+        let images = await this.getImagesByProductId(product.id);
+        console.log("images: ", images);
+        return { ...product, images };
+      })
+    );
+
+    const jsonProducts = {
+      products: allInfo,
+      total: allInfo.length,
+    };
+
+    return { success: true, data: jsonProducts };
+  }
+  /**
+   *
+   * @param {number} id
+   * @param {Array<string>} images
+   * @returns {Promise<Object>} Object {success: true} or {success: false, message: <error message> }
+   */
+  static async deleteImages(id, images) {
+    console.log("Deleting images from database");
+    try {
+      const [id_images, _info] = await connection.query(
+        `
+        SELECT p_i.id_image FROM images i JOIN products_images p_i ON(i.id = p_i.id_image)
+        WHERE p_i.id_product = UUID_TO_BIN(?) AND i.public_id IN (?);`,
+        [id, images]
+      );
+
+      if (!id_images.length)
+        return { success: false, message: "No images found" };
+      const list_id = id_images.map((elem) => elem.id_image);
+      console.log("list_id: ", list_id);
+      console.log("Deleting images from products_images");
+      const [result] = await connection.query(
+        `
+        DELETE FROM products_images p_i WHERE p_i.id_product = UUID_TO_BIN(?)
+        AND p_i.id_image IN (?);`,
+        [id, list_id]
+      );
+      console.log("result: ", result);
+
+      console.log("Deleting images from database");
+      let isDeletedImages = true;
+      for (const id_image of list_id) {
+        const [{ affectedRows }] = await connection.query(
+          `DELETE FROM images WHERE id = ?;`,
+          [id_image]
+        );
+        if (!affectedRows) isDeletedImages = false;
+      }
+      if (!isDeletedImages) {
+        return { success: false, message: "Images not deleted" };
+      }
+      return { success: true, data: { id } };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  static async addImages(id, images) {
+    try {
+      console.log("Adding images to database");
+      for (const { public_id, image_url } of images) {
+        await connection.query(
+          `	
+          INSERT INTO images (public_id, image_url)
+          VALUES (?, ?);`,
+          [public_id, image_url]
+        );
+        const [[image], _info] = await connection.query(
+          `
+          SELECT id FROM images WHERE public_id = ?;`,
+          [public_id]
+        );
+        await connection.query(
+          `
+          INSERT INTO products_images (id_product, id_image)
+          VALUES (UUID_TO_BIN("${id}"), ?);`,
+          [image.id]
+        );
+      }
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
   }
 }
