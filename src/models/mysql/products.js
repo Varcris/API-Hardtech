@@ -7,16 +7,21 @@ export class ProductModel {
    * @param {String} category
    * @returns  {Promise<Array>} Array of products or null
    */
-  static async getAll(category) {
+  static async getAll(category, page, per_page) {
+    console.log("Searching products in Model");
+    const offset = page ? (page - 1) * per_page : 0;
+    const limit = per_page ? Number(per_page) : 4;
     console.log("category: ", category);
-    if (category) return await this.getByCategory(category);
-
+    console.log("offset: ", typeof offset, "value: ", offset);
+    console.log("limit: ", typeof limit, "value: ", limit);
+    if (category) return await this.getByCategory(category, offset, limit);
     try {
       console.log("Searching all products");
       const [products, _info] = await connection.query(
         `SELECT BIN_TO_UUID(p.id) id, p.title, p.description, p.price, p.discount_percentage, p.rating, p.stock, p.brand, c.name category
         FROM products p 
-        JOIN categories c ON(p.id_category = c.id);`
+        JOIN categories c ON(p.id_category = c.id) LIMIT ? , ? ;`,
+        [offset, limit]
       );
 
       if (!products.length)
@@ -30,6 +35,8 @@ export class ProductModel {
       );
       const jsonProducts = {
         products: allInfo,
+        page,
+        per_page,
         total: allInfo.length,
       };
 
@@ -256,14 +263,14 @@ export class ProductModel {
     return images.length ? images : [];
   }
 
-  static async getByCategory(category) {
+  static async getByCategory(category, offset, limit) {
     console.log("Searching products by category");
     const [filteredProducts, _info] = await connection.query(
       `SELECT BIN_TO_UUID(p.id) id, p.title, p.description, p.price, p.discount_percentage, p.rating, p.stock, p.brand, c.name category
       FROM products p 
       JOIN categories c ON(p.id_category = c.id)
-      WHERE c.name LIKE '%' ? '%';`,
-      [category]
+      WHERE c.name LIKE '%' ? '%' LIMIT ? , ?;`,
+      [category, offset, limit]
     );
 
     if (!filteredProducts.length)

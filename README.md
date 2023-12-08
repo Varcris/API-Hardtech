@@ -1,8 +1,8 @@
 # API-Hardtech
 
-### Integrantes
+## DEVS
 
 | Nombre   | Apellido |
 | -------- | -------- |
 | Cristian | Vargas   |
-|          |          |
+| Milagros | Vallejo  |

@@ -28,8 +28,13 @@ async function uploadToCloudinary(filesimages) {
 export class ProductController {
   static async getAll(req, res) {
     console.log("Controller getAll");
-    const { category } = req.query;
-    const result = await ProductModel.getAll(category);
+    const { category, page, per_page } = req.query;
+
+    const result = await ProductModel.getAll(
+      category,
+      Number(page),
+      Number(per_page)
+    );
     result.success
       ? res.status(200).json(result.data)
       : res.status(404).json({ message: "Not Found Products" });
