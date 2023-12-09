@@ -8,12 +8,10 @@ export class ProductModel {
    * @returns  {Promise<Array>} Array of products or null
    */
   static async getAll(category, page, per_page) {
+    // agregar , sort, order = "ASC" y buscar por titulo
     console.log("Searching products in Model");
     const offset = page ? (page - 1) * per_page : 0;
-    const limit = per_page ? Number(per_page) : 4;
-    console.log("category: ", category);
-    console.log("offset: ", typeof offset, "value: ", offset);
-    console.log("limit: ", typeof limit, "value: ", limit);
+    const limit = per_page ? per_page : 4;
     if (category) return await this.getByCategory(category, offset, limit);
     try {
       console.log("Searching all products");
@@ -33,11 +31,15 @@ export class ProductModel {
           return { ...product, images };
         })
       );
+      const [[countProducts]] = await connection.query(
+        `SELECT COUNT(*) total FROM products;`
+      );
+      console.log("totalProducts: ", countProducts);
       const jsonProducts = {
         products: allInfo,
         page,
         per_page,
-        total: allInfo.length,
+        total: countProducts.total,
       };
 
       return { success: true, data: jsonProducts };
