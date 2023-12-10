@@ -23,5 +23,5 @@ productsRoute.post(
   }),
   ProductController.addImages
 );
-productsRoute.delete("/:id/images", ProductController.deleteImages);
+productsRoute.post("/:id/delete-images", ProductController.deleteImages);
 productsRoute.delete("/:id", ProductController.delete);

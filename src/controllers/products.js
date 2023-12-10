@@ -158,14 +158,34 @@ export class ProductController {
 
     const existId = await ProductModel.existId(id);
     if (!existId) return res.status(404).json({ message: "Product Not Found" });
-
+    console.log(req.body);
     console.log("Validation id passed");
+    const {
+      title,
+      description,
+      price,
+      discount_percentage,
+      stock,
+      brand,
+      category,
+    } = req.body;
+    const inputValidated = validatePartialProduct({
+      title,
+      description,
+      price: Number(price),
+      discount_percentage: Number(discount_percentage),
+      stock: Number(stock),
+      brand,
+      category,
+    });
+    console.log(inputValidated.data);
 
-    const inputValidated = validatePartialProduct(req.body);
     if (!inputValidated.success) {
+      console.log(inputValidated.error);
       return res.status(400).json({ message: inputValidated.error });
     }
     console.log("Validation product passed");
+    console.log(inputValidated.data);
 
     const { success, message } = await ProductModel.update(
       id,
@@ -182,6 +202,8 @@ export class ProductController {
     const { id } = req.params;
     const { images } = req.body;
     console.log("Controller deleteImages");
+    console.log(req.params);
+    console.log(req.body);
     console.log(images);
     const validationId = validateId({ id });
     if (!validationId.success) return res.status(400).json(validationId.error);
@@ -196,6 +218,7 @@ export class ProductController {
     console.log(imagesValidated.data);
     const arrayPublic_id = imagesValidated.data.map((image) => image.public_id);
     const result = await ProductModel.deleteImages(id, arrayPublic_id);
+
     if (result.success) {
       console.log("Deleting images from cloudinary");
       let isDeletedImagesInCloudinary = [];
@@ -227,11 +250,11 @@ export class ProductController {
     console.log("Validation product passed");
 
     let imagesCloudinary = [];
+    console.log(req.files.images);
     if (req.files?.images) {
+      console.log("to cloudinary");
       imagesCloudinary = await uploadToCloudinary(req.files.images);
     }
-    console.log("Validation images passed");
-    console.log(imagesCloudinary);
     const result = await ProductModel.addImages(id, imagesCloudinary);
     console.log("result: ", result);
     if (result.success) {
