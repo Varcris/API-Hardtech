@@ -108,8 +108,10 @@ export class ProductController {
       title,
       description,
       price: Number(price),
-      discount_percentage: Number(discount_percentage),
-      rating: Number(rating),
+      discount_percentage: discount_percentage
+        ? Number(discount_percentage)
+        : 0,
+      rating: rating ? Number(rating) : 0,
       stock: Number(stock),
       brand,
       category,
@@ -123,6 +125,8 @@ export class ProductController {
     if (!existCategory) return res.status(400).json({ message: "Bad Request" });
 
     console.log("Validation passed");
+    console.log(req.files ? "Hay imagenes" : "No hay imagenes");
+    console.log(req.files);
     let imagesCloudinary = [];
     if (req.files?.images) {
       imagesCloudinary = await uploadToCloudinary(req.files.images);
